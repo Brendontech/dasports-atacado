@@ -1,8 +1,12 @@
-import csv, sys, re, json, unicodedata
+import csv, sys, re, json, unicodedata, os
 csv.field_size_limit(sys.maxsize)
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from teams_registry import TEAMS
 
 SRC = 'products_export.csv'  # exporte do Shopify Admin > Produtos > Exportar, e coloque aqui com este nome
 OUT_JS = '../src/js/products-catalog.js'
+OUT_TEAMS_JS = '../src/js/teams.js'
 
 EXCLUDE_KW = re.compile(r'\b(patch|patches|cartas?|chaveiros?|chuteiras?)\b', re.I)
 PRONTA_ENTREGA = re.compile(r'pronta\s*entrega', re.I)
@@ -15,6 +19,13 @@ FEATURED_CLUBS = [
     'manchester united',
 ]
 RECENT_SEASON = re.compile(r'26/27|25/26|2026/27|2025/26|\b2026\b|\b27\b', re.I)
+
+# times/selecoes com logo — cada alias vira um regex \bALIAS\b; ordem importa
+# (nomes específicos antes de genéricos, ver teams_registry.py)
+TEAM_PATTERNS = [
+    (team['slug'], team['scope'], [re.compile(r'\b' + re.escape(a) + r'\b') for a in team['aliases']])
+    for team in TEAMS
+]
 
 
 def strip_accents(s):
@@ -64,6 +75,22 @@ def guess_kind(title_l):
     return ' · '.join(bits)
 
 
+def guess_gender(title_l):
+    if 'infantil' in title_l:
+        return 'infantil'
+    if 'feminin' in title_l:
+        return 'feminino'
+    return 'masculino'
+
+
+def match_team(title_l):
+    for slug, scope, patterns in TEAM_PATTERNS:
+        for p in patterns:
+            if p.search(title_l):
+                return slug, scope
+    return None, None
+
+
 rows_by_handle = {}
 order = []
 with open(SRC, newline='', encoding='utf-8') as f:
@@ -79,6 +106,7 @@ with open(SRC, newline='', encoding='utf-8') as f:
 
 products = []
 excluded = {}
+team_counts = {}
 
 for h in order:
     rows = rows_by_handle[h]
@@ -142,13 +170,15 @@ for h in order:
 
     opt1name = norm(main.get('Option1 Name', ''))
     sizes = []
-    if 'tamanho' in opt1name:
+    if 'tamanho' in opt1name or 'idade' in opt1name:
         seen_sz = set()
         for row in rows:
             v = (row.get('Option1 Value') or '').strip()
             if v and v.lower() != 'default title' and v not in seen_sz:
                 seen_sz.add(v)
                 sizes.append(v)
+        if sizes and all(s.isdigit() for s in sizes):
+            sizes.sort(key=lambda s: int(s))
     if not sizes:
         sizes = ['P', 'M', 'G', 'GG']
 
@@ -158,6 +188,25 @@ for h in order:
 
     category = guess_category(tags_l, title_l)
     kind = guess_kind(title_l)
+    gender = guess_gender(title_l)
+
+    # tabela infantil oficial: 2 ao 12 — sobrescreve tamanhos em letra (P/M/G) ou ausentes
+    if gender == 'infantil' and not (sizes and all(s.isdigit() for s in sizes)):
+        sizes = ['2', '4', '6', '8', '10', '12']
+
+    team_slug, team_scope = match_team(title_l)
+    if team_slug:
+        team_counts[team_slug] = team_counts.get(team_slug, 0) + 1
+        scope = team_scope
+    else:
+        if category == 'Seleções':
+            scope = 'selecao'
+        elif category.startswith('Clubes internacionais'):
+            scope = 'internacional'
+        elif category.startswith('Clubes nacionais'):
+            scope = 'nacional'
+        else:
+            scope = None
 
     description = [
         'Tecido esportivo padrão do fornecedor, mesmo modelo das lojas oficiais.',
@@ -177,12 +226,16 @@ for h in order:
         'description': description,
         'score': score,
         'featured': is_featured_club,
+        'team': team_slug,
+        'scope': scope,
+        'gender': gender,
     })
 
 products.sort(key=lambda p: (-p['score'], p['name']))
 
 print('kept:', len(products), file=sys.stderr)
 print('excluded:', excluded, file=sys.stderr)
+print('times identificados:', len(team_counts), 'de', len(TEAMS), 'no registro —', sum(team_counts.values()), 'produtos com time', file=sys.stderr)
 
 lines = []
 lines.append('// Gerado a partir da exportação de produtos do Shopify (products_export_1.csv).')
@@ -204,11 +257,19 @@ for p in products:
         for i, img in enumerate(p['images'])
     )
     desc_js = ', '.join("'" + esc(d) + "'" for d in p['description'])
-    tags_display = kind + ' · Tam. ' + '/'.join(p['sizes'][:2]) + ('–' + p['sizes'][-1] if len(p['sizes']) > 2 else '')
+    if all(s.isdigit() for s in p['sizes']) and len(p['sizes']) > 1:
+        sizes_summary = p['sizes'][0] + '–' + p['sizes'][-1]
+    else:
+        sizes_summary = '/'.join(p['sizes'][:2]) + ('–' + p['sizes'][-1] if len(p['sizes']) > 2 else '')
+    tags_display = kind + ' · Tam. ' + sizes_summary
+    team_js = "'" + esc(p['team']) + "'" if p['team'] else 'null'
+    scope_js = "'" + esc(p['scope']) + "'" if p['scope'] else 'null'
 
     lines.append(
         "  IMPORTED['" + slug + "'] = { slug: '" + slug + "', name: '" + name + "', category: '" + category +
-        "', tags: '" + esc(tags_display) + "', featured: " + ('true' if p['featured'] else 'false') + ", images: [" + imgs_js + "], price: [{ range: 'A partir de 10 peças', value: '" +
+        "', tags: '" + esc(tags_display) + "', featured: " + ('true' if p['featured'] else 'false') +
+        ", team: " + team_js + ", scope: " + scope_js + ", gender: '" + esc(p['gender']) + "'" +
+        ", images: [" + imgs_js + "], price: [{ range: 'A partir de 10 peças', value: '" +
         price_val + "', min: 10 }], sizes: [" + sizes_js + "], description: [" + desc_js + "] };"
     )
 
@@ -219,5 +280,21 @@ with open(OUT_JS, 'w', encoding='utf-8') as f:
     f.write('\n'.join(lines) + '\n')
 
 print('wrote', OUT_JS, file=sys.stderr)
-import os
 print('size bytes:', os.path.getsize(OUT_JS), file=sys.stderr)
+
+# ---- teams.js: registro de times pro filtro (nome, escudo, escopo) ----
+teams_lines = []
+teams_lines.append('// Registro de times/seleções (nome, escudo, escopo) usado pelo filtro do catálogo.')
+teams_lines.append('// Gerado por build_products_js.py a partir de teams_registry.py.')
+teams_lines.append('window.DA_TEAMS = [')
+for team in TEAMS:
+    teams_lines.append(
+        "  { slug: '" + esc(team['slug']) + "', name: '" + esc(team['name']) + "', scope: '" + esc(team['scope']) +
+        "', logo: 'src/img/teams/" + esc(team['logo']) + "', count: " + str(team_counts.get(team['slug'], 0)) + " },"
+    )
+teams_lines.append('];')
+
+with open(OUT_TEAMS_JS, 'w', encoding='utf-8') as f:
+    f.write('\n'.join(teams_lines) + '\n')
+
+print('wrote', OUT_TEAMS_JS, file=sys.stderr)

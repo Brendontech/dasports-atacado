@@ -147,8 +147,16 @@ já filtrados e ordenados:
 - **Times em destaque primeiro**: Flamengo, Corinthians, Palmeiras, Real
   Madrid, Barcelona, Milan, PSG e Manchester United aparecem no topo do
   catálogo, e dentro disso os modelos de temporada mais recente (26/27,
-  25/26, 2026) vêm antes dos demais. O filtro "Times em destaque" no
-  catálogo mostra só esses.
+  25/26, 2026) vêm antes dos demais.
+- **Time, categoria e gênero identificados automaticamente**: cada modelo é
+  comparado com a lista de 62 times/seleções em `tools/teams_registry.py`
+  (escudo + nome + categoria) pra descobrir de qual time é a camisa, se é
+  clube nacional, clube internacional ou seleção, e se é masculina, feminina
+  ou infantil (pelo título do produto). Hoje **1.877 dos 2.382 modelos**
+  ficaram associados a um time específico — os que não bateram com nenhum
+  time da lista continuam aparecendo no catálogo normalmente, só não têm
+  escudo pra filtrar por time (aparecem nas abas Nacional/Internacional/
+  Seleções pela categoria do Shopify, mesmo sem time identificado).
 
 Pra reprocessar depois de uma nova exportação do Shopify (Admin → Produtos →
 Exportar → todos os produtos → CSV por e-mail):
@@ -159,16 +167,32 @@ cd tools
 python3 build_products.py
 ```
 
-Isso reescreve o `src/js/products-catalog.js` do zero. O script está em
-`tools/build_products.py` — os critérios de exclusão e a lista de times em
-destaque ficam no topo do arquivo, é só editar as listas `FEATURED_CLUBS` e
-as expressões `EXCLUDE_KW`/`PRONTA_ENTREGA` se quiser ajustar.
+Isso reescreve o `src/js/products-catalog.js` **e** o `src/js/teams.js` do
+zero. O script está em `tools/build_products.py` — os critérios de exclusão
+e a lista de times em destaque ficam no topo do arquivo, é só editar as
+listas `FEATURED_CLUBS` e as expressões `EXCLUDE_KW`/`PRONTA_ENTREGA` se
+quiser ajustar.
+
+### Adicionar um novo time ao filtro
+
+1. Coloque o escudo em `src/img/teams/<nacional|internacional|selecao>/<slug-do-time>.png` (ou `.webp`/`.jpg`).
+2. Adicione uma entrada em `tools/teams_registry.py` (lista `TEAMS`) com
+   `slug`, `name`, `scope` (`nacional`/`internacional`/`selecao`), `logo` e
+   `aliases` (as variações de texto que aparecem no título do produto — em
+   minúsculo e sem acento). Times com nome mais específico devem vir antes
+   de nomes genéricos na lista, pra evitar confusão (ex.: "Inter Miami"
+   antes de "Internacional").
+3. Rode `python3 build_products.py` de novo (dentro de `tools/`).
 
 ## Funcionalidades novas
 
-- **Busca e filtro** no catálogo (`Buscar por nome...` + botões Todos/Times
-  em destaque), com paginação automática quando há mais modelos do que
-  cabem em uma página.
+- **Filtro do catálogo em 3 camadas**: abas por categoria (Todos / Nacional
+  / Internacional / Seleções), filtro por gênero (Todos / Masculino /
+  Feminino / Infantil) e um painel "Filtrar por time" com o escudo de cada
+  time — pode selecionar **mais de um time ao mesmo tempo** (ex.: Flamengo +
+  Corinthians juntos). Os três filtros combinam entre si e com a busca por
+  texto, com paginação automática quando há mais modelos do que cabem numa
+  página.
 - **Monte seu pedido**: na página de cada produto, dá pra escolher a
   quantidade por tamanho e adicionar ao carrinho. O ícone de carrinho no
   cabeçalho abre um painel lateral com o resumo, preço por faixa de

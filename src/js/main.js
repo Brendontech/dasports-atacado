@@ -1,36 +1,13 @@
 (function(){
   // ---- editable settings ----
-  var WHATSAPP_GROUP_LINK = "https://chat.whatsapp.com/SEULINKAQUI"; // [EDITAR-GRUPO] link de convite do grupo — aparece só no final do formulário
+  var WHATSAPP_GROUP_LINK = "https://chat.whatsapp.com/C6P3Kp7WuJf5wgDPfAohIz"; // [EDITAR-GRUPO] link de convite do grupo — aparece só no final do formulário (link de teste)
   var WHATSAPP_NUMBER = "5511900000000"; // [EDITAR-WHATSAPP] formato: 55 + DDD + número, só dígitos — usado apenas para enviar o pedido montado no carrinho
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   // [EDITAR-PRODUTOS] — cada produto vira uma linha clicável no catálogo e uma página própria.
   // Para adicionar um modelo novo, copie o bloco abaixo e troque a chave (slug) e os dados.
-  var PRODUCTS = {
-    "espanha-2024-home": {
-      slug: "espanha-2024-home",
-      name: "Seleção Espanha 24/25 — Home",
-      category: "Seleções · Torcedor",
-      tags: "Tam. P–2GG · Dry-fit · Personalizável",
-      images: [
-        { src: "src/img/jersey-full.jpg", alt: "Camisa Seleção Espanha 24/25, vista frontal completa", caption: "Frente" },
-        { src: "src/img/jersey-crest.jpg", alt: "Detalhe do escudo da seleção e do logo adidas no peito", caption: "Escudo e logo" },
-        { src: "src/img/jersey-sleeve.jpg", alt: "Detalhe do ombro e da gola", caption: "Ombro e gola" }
-      ],
-      price: [
-        { range: "10–29 peças", value: "R$ 42,90", min: 10 },
-        { range: "30–59 peças", value: "R$ 39,90", min: 30 },
-        { range: "60+ peças", value: "R$ 36,90", min: 60 }
-      ],
-      sizes: ["P", "M", "G", "GG", "2GG"],
-      description: [
-        "Tecido dry-fit, mesma qualidade das linhas profissionais.",
-        "Personalização com nome e número: +R$ 20 por peça.",
-        "Pedido mínimo de 10 peças, grade de tamanhos livre."
-      ]
-    }
-  };
+  var PRODUCTS = {};
 
   // [EDITAR-EM-BREVE] — modelos sem foto/preço ainda; aparecem no catálogo como "em breve" e não abrem página própria.
   var COMING_SOON = [];
@@ -52,7 +29,7 @@
     { src: "src/img/shipped/shot3.jpg", alt: "Lote de camisas da Seleção da Itália (adidas) embaladas para envio" },
     { src: "src/img/shipped/shot4.jpg", alt: "Lote de camisas da Seleção da Alemanha (adidas) embaladas para envio" },
     { src: "src/img/shipped/shot5.jpg", alt: "Lote de camisas do Cruzeiro (adidas) embaladas para envio" },
-    { src: "src/img/shipped/shot6.jpg", alt: "Lote de camisas do Cruzeiro (adidas) prontas para despacho" },
+    { src: "src/img/shipped/shot6.jpg", alt: "Lote de camisas do Cruzeiro (adidas) prontas para envio" },
     { src: "src/img/shipped/shot7.jpg", alt: "Lote de camisas variadas (Sport, Flamengo, Palmeiras) separadas para envio" }
   ];
   var SHIPPED_PHOTOS_TOTAL_SLOTS = 7; // quantos quadros mostrar no total (fotos reais + "em breve")
@@ -77,7 +54,7 @@
   // ---- build catalog list ----
   // ---- catalog: search + filter + pagination ----
   var CAT_PAGE_SIZE = 12;
-  var catState = { query: '', filter: 'all', page: 1 };
+  var catState = { query: '', scope: 'all', gender: 'all', teams: new Set(), page: 1 };
   var catEntries = null; // built lazily from PRODUCTS + COMING_SOON
 
   // menor valor entre as faixas de preço do produto — é o número que cabe num card de grade
@@ -90,6 +67,21 @@
     return min === null ? '' : numberToBrl(min);
   }
 
+  // marcação do card de produto — compartilhada entre o catálogo e "produtos relacionados"
+  function productCardHtml(p){
+    return '' +
+      '<a class="cat-card-img" href="#/produto/' + p.slug + '"><img src="' + p.images[0].src + '" alt="' + p.images[0].alt + '" loading="lazy" /></a>' +
+      '<div class="cat-card-body">' +
+        '<a class="cat-card-name-link" href="#/produto/' + p.slug + '"><h3 class="cat-card-name">' + p.name + '</h3></a>' +
+        '<div class="cat-card-tags">' + p.tags + '</div>' +
+        '<div class="cat-card-price">a partir de <b>' + fromPrice(p) + '</b></div>' +
+        '<div class="cat-card-cta">' +
+          '<a class="btn btn-outline-dark btn-sm" href="#/produto/' + p.slug + '">Ver produto</a>' +
+          '<button type="button" class="btn btn-solid-dark btn-sm js-open-quiz">Pedir</button>' +
+        '</div>' +
+      '</div>';
+  }
+
   function buildCatEntries(){
     var entries = [];
     Object.keys(PRODUCTS).forEach(function(slug){
@@ -97,24 +89,20 @@
       entries.push({
         type: 'available',
         featured: !!p.featured,
+        scope: p.scope || null,
+        gender: p.gender || 'masculino',
+        team: p.team || null,
         search: (p.name + ' ' + p.tags).toLowerCase(),
-        html: '' +
-          '<a class="cat-card-img" href="#/produto/' + p.slug + '"><img src="' + p.images[0].src + '" alt="' + p.images[0].alt + '" loading="lazy" /></a>' +
-          '<div class="cat-card-body">' +
-            '<a class="cat-card-name-link" href="#/produto/' + p.slug + '"><h3 class="cat-card-name">' + p.name + '</h3></a>' +
-            '<div class="cat-card-tags">' + p.tags + '</div>' +
-            '<div class="cat-card-price">a partir de <b>' + fromPrice(p) + '</b></div>' +
-            '<div class="cat-card-cta">' +
-              '<a class="btn btn-outline-dark btn-sm" href="#/produto/' + p.slug + '">Ver produto</a>' +
-              '<button type="button" class="btn btn-solid-dark btn-sm js-open-quiz">Pedir</button>' +
-            '</div>' +
-          '</div>',
+        html: productCardHtml(p),
         rowClass: 'is-linked'
       });
     });
     COMING_SOON.forEach(function(item){
       entries.push({
         type: 'soon',
+        scope: null,
+        gender: null,
+        team: null,
         search: item.name.toLowerCase(),
         html: '' +
           '<div class="cat-card-img cat-card-img--soon">Foto em breve</div>' +
@@ -133,8 +121,9 @@
   function filteredCatEntries(){
     var q = catState.query.trim().toLowerCase();
     return catEntries.filter(function(e){
-      if (catState.filter === 'featured' && !e.featured) return false;
-      else if (catState.filter !== 'all' && catState.filter !== 'featured' && e.type !== catState.filter) return false;
+      if (catState.scope !== 'all' && e.scope !== catState.scope) return false;
+      if (catState.gender !== 'all' && e.gender !== catState.gender) return false;
+      if (catState.teams.size > 0 && !catState.teams.has(e.team)) return false;
       if (q && e.search.indexOf(q) === -1) return false;
       return true;
     });
@@ -164,6 +153,48 @@
     el.innerHTML = html;
   }
 
+  // ---- filtro por time (painel com escudos, multi-seleção) ----
+  var catTeamQuery = '';
+  function teamsForPanel(){
+    var teams = (window.DA_TEAMS || []).filter(function(t){ return t.count > 0; });
+    if (catState.scope !== 'all') teams = teams.filter(function(t){ return t.scope === catState.scope; });
+    var q = catTeamQuery.trim().toLowerCase();
+    if (q) teams = teams.filter(function(t){ return t.name.toLowerCase().indexOf(q) !== -1; });
+    return teams;
+  }
+  function renderTeamPanel(){
+    var groupsEl = document.getElementById('catTeamGroups');
+    var teams = teamsForPanel();
+    var groups = { nacional: [], internacional: [], selecao: [] };
+    teams.forEach(function(t){ if (groups[t.scope]) groups[t.scope].push(t); });
+    var labels = { nacional: 'Clubes nacionais', internacional: 'Clubes internacionais', selecao: 'Seleções' };
+    var html = '';
+    ['nacional', 'internacional', 'selecao'].forEach(function(scope){
+      if (!groups[scope].length) return;
+      html += '' +
+        '<div class="cat-team-group">' +
+          '<span class="cat-team-group-label">' + labels[scope] + '</span>' +
+          '<div class="cat-team-grid">' +
+            groups[scope].map(function(t){
+              var active = catState.teams.has(t.slug) ? ' is-active' : '';
+              return '' +
+                '<button type="button" class="cat-team-chip' + active + '" data-team="' + t.slug + '" aria-pressed="' + (active ? 'true' : 'false') + '">' +
+                  '<img src="' + t.logo + '" alt="" loading="lazy" />' +
+                  '<span>' + t.name + '</span>' +
+                '</button>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+    });
+    groupsEl.innerHTML = html || '<p class="cat-team-empty">Nenhum time encontrado.</p>';
+  }
+  function updateTeamBadge(){
+    var badge = document.getElementById('catTeamBadge');
+    var n = catState.teams.size;
+    badge.textContent = n;
+    badge.hidden = n === 0;
+  }
+
   function renderCatalog(){
     if (!catEntries) catEntries = buildCatEntries();
     var list = document.getElementById('catalogList');
@@ -184,6 +215,33 @@
   }
 
   function buildCatalog(){ renderCatalog(); }
+
+  // ---- faixa de texto rolando (ticker) — duplica o conteúdo até preencher pelo
+  // menos 2x a largura visível, senão em telas largas sobra espaço em branco no
+  // meio do loop. Depois duplica tudo de novo pra ficarem duas metades idênticas,
+  // o que é o que faz o "salto" do translateX(-50%) ser invisível.
+  var tickerBaseHtml = null;
+  function initTicker(){
+    var track = document.getElementById('tickerTrack');
+    if (!track) return;
+    var container = track.parentElement;
+    if (tickerBaseHtml === null) tickerBaseHtml = track.innerHTML;
+    track.innerHTML = tickerBaseHtml;
+    var guard = 0;
+    while (track.scrollWidth < container.clientWidth * 1.5 && guard < 24){
+      track.innerHTML += tickerBaseHtml;
+      guard++;
+    }
+    track.innerHTML += track.innerHTML; // duas metades idênticas p/ o loop de -50%
+    var halfWidth = track.scrollWidth / 2;
+    var duration = Math.min(110, Math.max(30, halfWidth / 40));
+    track.style.animationDuration = duration + 's';
+  }
+  var tickerResizeTimer = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(tickerResizeTimer);
+    tickerResizeTimer = setTimeout(initTicker, 250);
+  });
 
   // ---- build "produtos enviados" proof grid ----
   var proofIconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l4.5-4.5a2 2 0 0 1 2.8 0L15 15"/><path d="M13 13l1.7-1.7a2 2 0 0 1 2.8 0L21 15"/><circle cx="8" cy="9" r="1.3"/></svg>';
@@ -222,6 +280,8 @@
     }).join('');
 
     renderSizePicker(p);
+    var personalizeReset = document.getElementById('productPersonalize');
+    if (personalizeReset) personalizeReset.value = '';
 
     galleryState.images = p.images;
     galleryState.index = 0;
@@ -237,6 +297,62 @@
         renderGalleryMain();
       });
     });
+
+    renderRelatedProducts(p);
+  }
+
+  // ---- produtos relacionados (mesma categoria do produto aberto) ----
+  var RELATED_COUNT = 12;
+  function relatedProducts(p){
+    var all = Object.keys(PRODUCTS).map(function(slug){ return PRODUCTS[slug]; }).filter(function(o){ return o.slug !== p.slug; });
+    // sempre respeita o gênero do produto aberto (masculino só mostra masculino, infantil só infantil, etc.)
+    var sameGender = p.gender ? all.filter(function(o){ return o.gender === p.gender; }) : all;
+    var sameCategory = sameGender.filter(function(o){ return o.category === p.category; });
+    var picked = sameCategory.slice(0, RELATED_COUNT);
+    if (picked.length < RELATED_COUNT){
+      var restSameGender = sameGender.filter(function(o){ return picked.indexOf(o) === -1; });
+      restSameGender.sort(function(a, b){ return (b.featured ? 1 : 0) - (a.featured ? 1 : 0); });
+      picked = picked.concat(restSameGender.slice(0, RELATED_COUNT - picked.length));
+    }
+    if (picked.length < RELATED_COUNT){
+      // só sai do gênero se realmente não houver produtos suficientes do mesmo gênero
+      var restAny = all.filter(function(o){ return picked.indexOf(o) === -1; });
+      restAny.sort(function(a, b){ return (b.featured ? 1 : 0) - (a.featured ? 1 : 0); });
+      picked = picked.concat(restAny.slice(0, RELATED_COUNT - picked.length));
+    }
+    return picked;
+  }
+  function renderRelatedProducts(p){
+    var section = document.getElementById('productRelated');
+    var grid = document.getElementById('productRelatedGrid');
+    if (!section || !grid) return;
+    var items = relatedProducts(p);
+    if (items.length === 0){ section.hidden = true; return; }
+    section.hidden = false;
+    grid.innerHTML = items.map(function(o){
+      return '<article class="cat-card is-linked reveal is-visible">' + productCardHtml(o) + '</article>';
+    }).join('');
+    setupRelatedCarousel();
+  }
+  function setupRelatedCarousel(){
+    var track = document.getElementById('productRelatedGrid');
+    var prevBtn = document.getElementById('productRelatedPrev');
+    var nextBtn = document.getElementById('productRelatedNext');
+    if (!track || !prevBtn || !nextBtn) return;
+    function scrollByCards(dir){
+      var card = track.querySelector('.cat-card');
+      var step = card ? (card.getBoundingClientRect().width + 20) * 2 : 300;
+      track.scrollBy({ left: dir * step, behavior: 'smooth' });
+    }
+    function updateArrows(){
+      var max = track.scrollWidth - track.clientWidth - 2;
+      prevBtn.disabled = track.scrollLeft <= 2;
+      nextBtn.disabled = track.scrollLeft >= max;
+    }
+    prevBtn.onclick = function(){ scrollByCards(-1); };
+    nextBtn.onclick = function(){ scrollByCards(1); };
+    track.onscroll = updateArrows;
+    requestAnimationFrame(updateArrows);
   }
 
   // ---- price tier lookup + BRL parsing ----
@@ -265,9 +381,11 @@
       return '' +
         '<div class="size-stepper" data-size="' + s + '">' +
           '<span class="size-label">' + s + '</span>' +
-          '<button type="button" class="step-btn" data-dir="-1" aria-label="Diminuir ' + s + '">–</button>' +
-          '<span class="step-qty">0</span>' +
-          '<button type="button" class="step-btn" data-dir="1" aria-label="Aumentar ' + s + '">+</button>' +
+          '<div class="size-stepper-controls">' +
+            '<button type="button" class="step-btn" data-dir="-1" aria-label="Diminuir ' + s + '">–</button>' +
+            '<span class="step-qty">0</span>' +
+            '<button type="button" class="step-btn" data-dir="1" aria-label="Aumentar ' + s + '">+</button>' +
+          '</div>' +
         '</div>';
     }).join('');
     updateSizePickerTotal(p);
@@ -291,10 +409,13 @@
         if (sizePickerState[s] > 0){ sizes[s] = sizePickerState[s]; total += sizePickerState[s]; }
       });
       if (total === 0) return;
-      addToCart(p, sizes);
+      var personalizeEl = document.getElementById('productPersonalize');
+      var note = personalizeEl ? personalizeEl.value.trim() : '';
+      addToCart(p, sizes, note);
       p.sizes.forEach(function(s){ sizePickerState[s] = 0; });
       wrap.querySelectorAll('.step-qty').forEach(function(el){ el.textContent = '0'; });
       updateSizePickerTotal(p);
+      if (personalizeEl) personalizeEl.value = '';
       openCartDrawer();
     };
   }
@@ -312,13 +433,14 @@
   // ---- cart ----
   var cart = {}; // slug -> { name, image, price, sizes: {P:qty,...} }
 
-  function addToCart(product, sizes){
+  function addToCart(product, sizes, note){
     if (!cart[product.slug]){
-      cart[product.slug] = { name: product.name, image: product.images[0].src, price: product.price, sizes: {} };
+      cart[product.slug] = { name: product.name, image: product.images[0].src, price: product.price, sizes: {}, notes: [] };
     }
     Object.keys(sizes).forEach(function(s){
       cart[product.slug].sizes[s] = (cart[product.slug].sizes[s] || 0) + sizes[s];
     });
+    if (note){ cart[product.slug].notes.push(note); }
     renderCart();
   }
   function removeCartItem(slug){
@@ -357,12 +479,16 @@
       var sizesHtml = Object.keys(item.sizes).map(function(s){
         return '<span>' + s + ' × ' + item.sizes[s] + '</span>';
       }).join('');
+      var notesHtml = (item.notes && item.notes.length)
+        ? '<div class="cart-item-notes">Personalização: ' + item.notes.join(' · ').replace(/</g, '&lt;') + '</div>'
+        : '';
       return '' +
         '<div class="cart-item">' +
           '<img src="' + item.image + '" alt="" />' +
           '<div class="cart-item-info">' +
             '<div class="cart-item-name">' + item.name + '</div>' +
             '<div class="cart-item-sizes">' + sizesHtml + '</div>' +
+            notesHtml +
             '<div class="cart-item-price">' + qty + ' peças · ' + tier.value + ' cada · <b>' + numberToBrl(subtotal) + '</b></div>' +
           '</div>' +
           '<button type="button" class="cart-item-remove" data-slug="' + slug + '" aria-label="Remover">&times;</button>' +
@@ -389,8 +515,16 @@
       grandTotal += subtotal;
       var sizesText = Object.keys(item.sizes).map(function(s){ return s + ' x' + item.sizes[s]; }).join(', ');
       lines.push('• ' + item.name + ' — ' + sizesText + ' (' + qty + ' peças, ' + tier.value + ' cada = ' + numberToBrl(subtotal) + ')');
+      if (item.notes && item.notes.length){
+        item.notes.forEach(function(n){
+          lines.push('  Personalização: ' + n.replace(/\n/g, ' / '));
+        });
+      }
+      if (item.image){
+        lines.push('  Foto: ' + item.image);
+      }
+      lines.push('');
     });
-    lines.push('');
     lines.push('Total: ' + cartTotalPieces() + ' peças — ' + numberToBrl(grandTotal));
     return lines.join('\n');
   }
@@ -505,12 +639,17 @@
     quizProgress.style.display = quizState.step >= QUIZ_STEPS.length ? 'none' : 'flex';
   }
 
+  // [EDITAR-PRECO-EXEMPLO] faixas de preço usadas só como exemplo na dica do quiz
+  var QUIZ_PRICE_HINT_TIERS = [
+    { range: "10–29 peças", value: "R$ 42,90" },
+    { range: "30–59 peças", value: "R$ 39,90" },
+    { range: "60+ peças", value: "R$ 36,90" }
+  ];
+
   function priceHintForAnswer(qtyIdx){
-    var p = PRODUCTS['espanha-2024-home'];
-    if (!p) return '';
-    if (qtyIdx === 1) return 'Nessa faixa (10–29 peças) o preço fica ' + p.price[0].value + ' a peça.';
-    if (qtyIdx === 2) return 'Nessa faixa (30–59 peças) o preço cai pra ' + p.price[1].value + ' a peça.';
-    if (qtyIdx === 3) return 'Nessa faixa (60+ peças) o preço cai pra ' + p.price[2].value + ' a peça.';
+    if (qtyIdx === 1) return 'Nessa faixa (10–29 peças) o preço fica ' + QUIZ_PRICE_HINT_TIERS[0].value + ' a peça.';
+    if (qtyIdx === 2) return 'Nessa faixa (30–59 peças) o preço cai pra ' + QUIZ_PRICE_HINT_TIERS[1].value + ' a peça.';
+    if (qtyIdx === 3) return 'Nessa faixa (60+ peças) o preço cai pra ' + QUIZ_PRICE_HINT_TIERS[2].value + ' a peça.';
     return 'Sem mínimo alto pra conhecer o catálogo — comece do seu jeito.';
   }
 
@@ -626,14 +765,58 @@
       renderCatalog();
     }, 180);
   });
-  document.getElementById('catFilter').addEventListener('click', function(e){
-    var btn = e.target.closest('button[data-filter]');
+  document.getElementById('catTabs').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-scope]');
     if (!btn) return;
-    document.querySelectorAll('#catFilter button').forEach(function(b){ b.classList.remove('is-active'); });
+    document.querySelectorAll('#catTabs button').forEach(function(b){ b.classList.remove('is-active'); });
     btn.classList.add('is-active');
-    catState.filter = btn.getAttribute('data-filter');
+    catState.scope = btn.getAttribute('data-scope');
+    catState.page = 1;
+    // ao trocar de aba, times de outro escopo selecionados deixam de fazer sentido
+    if (catState.scope !== 'all'){
+      Array.from(catState.teams).forEach(function(slug){
+        var t = (window.DA_TEAMS || []).filter(function(x){ return x.slug === slug; })[0];
+        if (t && t.scope !== catState.scope) catState.teams.delete(slug);
+      });
+    }
+    updateTeamBadge();
+    if (!document.getElementById('catTeamPanel').hidden) renderTeamPanel();
+    renderCatalog();
+  });
+  document.getElementById('catGender').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-gender]');
+    if (!btn) return;
+    document.querySelectorAll('#catGender button').forEach(function(b){ b.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+    catState.gender = btn.getAttribute('data-gender');
     catState.page = 1;
     renderCatalog();
+  });
+  document.getElementById('catTeamToggle').addEventListener('click', function(){
+    var panel = document.getElementById('catTeamPanel');
+    var expanded = this.getAttribute('aria-expanded') === 'true';
+    this.setAttribute('aria-expanded', String(!expanded));
+    panel.hidden = expanded;
+    if (!expanded) renderTeamPanel();
+  });
+  document.getElementById('catTeamPanel').addEventListener('click', function(e){
+    var chip = e.target.closest('button[data-team]');
+    if (!chip) return;
+    var slug = chip.getAttribute('data-team');
+    if (catState.teams.has(slug)) catState.teams.delete(slug); else catState.teams.add(slug);
+    chip.classList.toggle('is-active');
+    updateTeamBadge();
+    catState.page = 1;
+    renderCatalog();
+  });
+  var catTeamSearchInput = document.getElementById('catTeamSearch');
+  var catTeamSearchTimer = null;
+  catTeamSearchInput.addEventListener('input', function(){
+    clearTimeout(catTeamSearchTimer);
+    catTeamSearchTimer = setTimeout(function(){
+      catTeamQuery = catTeamSearchInput.value;
+      renderTeamPanel();
+    }, 120);
   });
   document.getElementById('catPagination').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-page]');
@@ -792,12 +975,16 @@
       });
 
       // arrastar com o dedo (mobile) ou com o mouse (desktop)
-      var dragX = 0, dragging = false, moved = 0;
+      var dragX = 0, dragging = false, moved = 0, pendingLinkHref = null;
       // o navegador tenta "arrastar" a imagem/link nativamente e isso cancelava o gesto
       viewport.addEventListener('dragstart', function(e){ e.preventDefault(); });
       viewport.addEventListener('pointerdown', function(e){
         if (e.pointerType === 'mouse' && e.button !== 0) return;
         dragging = true; dragX = e.clientX; moved = 0;
+        // precisa capturar o link antes do setPointerCapture, que "retargeta" o evento
+        // de click pra este container e faz a navegação do <a> nunca acontecer
+        var linkEl = e.target.closest ? e.target.closest('a.jersey-card-link') : null;
+        pendingLinkHref = linkEl ? linkEl.getAttribute('href') : null;
         deck.classList.add('is-dragging');
         try { viewport.setPointerCapture(e.pointerId); } catch(_){}
         stop();
@@ -819,9 +1006,18 @@
       viewport.addEventListener('pointerup', endDrag);
       viewport.addEventListener('pointercancel', endDrag);
       viewport.addEventListener('pointerleave', endDrag);
-      // um arrasto não deve virar clique no link do produto
+      // um arrasto não deve virar clique no link do produto; um clique de verdade
+      // precisa ser navegado manualmente porque o setPointerCapture acima faz o
+      // evento de click "mirar" no container, não no <a>, então o link nunca navega sozinho
       viewport.addEventListener('click', function(e){
-        if (Math.abs(moved) > 8){ e.preventDefault(); e.stopPropagation(); }
+        if (Math.abs(moved) > 8){
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
+        if (pendingLinkHref){
+          e.preventDefault(); e.stopPropagation();
+          window.location.hash = pendingLinkHref.replace(/^#/, '');
+        }
       }, true);
 
       // só roda enquanto o hero está na tela
@@ -836,6 +1032,7 @@
   }
 
   // ---- init ----
+  initTicker();
   buildCatalog();
   buildProofGrid();
   renderCart();

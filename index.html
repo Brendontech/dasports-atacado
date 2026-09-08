@@ -13,14 +13,10 @@
 <!-- ============ TICKER ============ -->
 <div class="ticker" aria-hidden="true">
   <div class="ticker-track" id="tickerTrack">
-    <span>ENVIO PARA TODO O BRASIL</span>
-    <span>PERSONALIZAÇÃO COM NOME E NÚMERO</span>
-    <span>CATÁLOGO ATUALIZADO TODA SEMANA</span>
-    <span>PEDIDO MÍNIMO POR MODELO</span>
-    <span>ENVIO PARA TODO O BRASIL</span>
-    <span>PERSONALIZAÇÃO COM NOME E NÚMERO</span>
-    <span>CATÁLOGO ATUALIZADO TODA SEMANA</span>
-    <span>PEDIDO MÍNIMO POR MODELO</span>
+    <span>Envio para todo o Brasil</span>
+    <span>Personalização com nome e número</span>
+    <span>Catálogo atualizado toda semana</span>
+    <span>Pedido mínimo por modelo</span>
   </div>
 </div>
 
@@ -133,9 +129,36 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <input type="text" id="catSearch" placeholder="Buscar por nome, seleção, marca…" autocomplete="off" />
       </label>
-      <div class="cat-filter" id="catFilter" role="group" aria-label="Filtrar catálogo">
-        <button type="button" class="is-active" data-filter="all">Todos</button>
-        <button type="button" data-filter="featured">Times em destaque</button>
+    </div>
+
+    <div class="cat-filters reveal">
+      <div class="cat-tabs" id="catTabs" role="tablist" aria-label="Categoria">
+        <button type="button" class="is-active" data-scope="all">Todos</button>
+        <button type="button" data-scope="nacional">Nacional</button>
+        <button type="button" data-scope="internacional">Internacional</button>
+        <button type="button" data-scope="selecao">Seleções</button>
+      </div>
+      <div class="cat-gender" id="catGender" role="group" aria-label="Gênero">
+        <button type="button" class="is-active" data-gender="all">Todos</button>
+        <button type="button" data-gender="masculino">Masculino</button>
+        <button type="button" data-gender="feminino">Feminino</button>
+        <button type="button" data-gender="infantil">Infantil</button>
+      </div>
+    </div>
+
+    <div class="cat-team-block reveal">
+      <button type="button" class="cat-team-toggle" id="catTeamToggle" aria-expanded="false" aria-controls="catTeamPanel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 6v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V6l-9-4Z"/></svg>
+        <span>Filtrar por time</span>
+        <span class="cat-team-badge" id="catTeamBadge" hidden>0</span>
+        <svg class="cat-team-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="cat-team-panel" id="catTeamPanel" hidden>
+        <label class="cat-team-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="catTeamSearch" placeholder="Buscar time ou seleção…" autocomplete="off" />
+        </label>
+        <div id="catTeamGroups"></div>
       </div>
     </div>
 
@@ -230,7 +253,7 @@
           <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7.5" cy="18.5" r="1.6"/><circle cx="17.5" cy="18.5" r="1.6"/></svg></div>
           <span class="step-num">03</span>
         </div>
-        <h3>Despacho</h3>
+        <h3>Envio</h3>
         <p>Envio via transportadora parceira assim que o pedido sai da produção.</p>
       </div>
       <div class="ship-step glow reveal">
@@ -239,7 +262,7 @@
           <span class="step-num">04</span>
         </div>
         <h3>Rastreio</h3>
-        <p>Código de rastreio compartilhado direto no grupo assim que despachar.</p>
+        <p>Código de rastreio compartilhado direto no grupo assim que o pedido for enviado.</p>
       </div>
     </div>
   </div>
@@ -281,7 +304,7 @@
       <div class="step reveal">
         <div class="step-num">04</div>
         <h3>Produção e envio</h3>
-        <p>Personalização, conferência e despacho para todo o Brasil.</p>
+        <p>Personalização, conferência e envio para todo o Brasil.</p>
       </div>
     </div>
   </div>
@@ -328,6 +351,13 @@
         <div class="build-order">
           <span class="lbl">Monte seu pedido — escolha a quantidade por tamanho:</span>
           <div class="size-picker" id="productSizePicker"><!-- gerado via JS --></div>
+
+          <label class="build-order-personalize">
+            <span class="lbl">Personalização (nome e número) — opcional</span>
+            <textarea id="productPersonalize" rows="2" placeholder="Ex: P – João / 10&#10;M – Pedro / 7"></textarea>
+            <span class="build-order-personalize-hint">Uma linha por camisa. Vai junto no pedido, separado certinho por modelo.</span>
+          </label>
+
           <div class="build-order-foot">
             <div class="build-order-total" id="productOrderTotal">0 peças selecionadas</div>
             <button type="button" class="btn btn-solid-dark" id="productAddToCart" disabled>
@@ -344,10 +374,22 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Prefiro falar antes — entrar no grupo
           </button>
-          <a class="btn btn-outline-dark" href="#catalogo">Ver outros modelos</a>
         </div>
       </div>
     </div>
+
+    <section class="product-related" id="productRelated" hidden>
+      <h2>Você também pode gostar</h2>
+      <div class="related-carousel">
+        <button type="button" class="related-arrow related-prev" id="productRelatedPrev" aria-label="Ver anteriores">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="related-track" id="productRelatedGrid"></div>
+        <button type="button" class="related-arrow related-next" id="productRelatedNext" aria-label="Ver próximos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </section>
   </div>
 </main>
 
@@ -374,7 +416,6 @@
     </div>
     <div class="foot-bottom">
       <span>© 2026 DA SPORTS — ATACADO</span>
-      <span>PREÇOS E MÍNIMOS: EXEMPLOS DE REFERÊNCIA</span>
     </div>
   </div>
 </footer>
@@ -411,6 +452,7 @@
 
 <!-- lightbox mounts here via JS -->
 <div id="lightboxRoot"></div>
+<script src="src/js/teams.js"></script>
 <script src="src/js/products-catalog.js"></script>
 <script src="src/js/main.js"></script>
 </body>
