@@ -57,24 +57,48 @@
   var catState = { query: '', scope: 'all', gender: 'all', teams: new Set(), page: 1 };
   var catEntries = null; // built lazily from PRODUCTS + COMING_SOON
 
-  // menor valor entre as faixas de preço do produto — é o número que cabe num card de grade
-  function fromPrice(p){
-    var min = null;
-    p.price.forEach(function(t){
-      var n = brlToNumber(t.value);
-      if (min === null || n < min) min = n;
+  // ---- filtros do catálogo: lembrar entre visitas (times, escopo e gênero) ----
+  var CAT_FILTERS_STORAGE_KEY = 'daSportsCatFilters';
+  function saveCatFiltersToStorage(){
+    try {
+      localStorage.setItem(CAT_FILTERS_STORAGE_KEY, JSON.stringify({
+        scope: catState.scope,
+        gender: catState.gender,
+        teams: Array.from(catState.teams)
+      }));
+    } catch(_){}
+  }
+  function loadCatFiltersFromStorage(){
+    try {
+      var raw = localStorage.getItem(CAT_FILTERS_STORAGE_KEY);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      if (!saved) return;
+      if (saved.scope) catState.scope = saved.scope;
+      if (saved.gender) catState.gender = saved.gender;
+      if (Array.isArray(saved.teams)) catState.teams = new Set(saved.teams);
+    } catch(_){}
+  }
+  // reflete o estado carregado do storage nos botões/badges antes da primeira renderização
+  function syncCatFiltersUi(){
+    document.querySelectorAll('#catTabs button').forEach(function(b){
+      b.classList.toggle('is-active', b.getAttribute('data-scope') === catState.scope);
     });
-    return min === null ? '' : numberToBrl(min);
+    document.querySelectorAll('#catGender button').forEach(function(b){
+      b.classList.toggle('is-active', b.getAttribute('data-gender') === catState.gender);
+    });
+    updateTeamBadge();
   }
 
   // marcação do card de produto — compartilhada entre o catálogo e "produtos relacionados"
+  // preço não aparece aqui de propósito: varia com a quantidade, então só é informado
+  // quando a pessoa consulta o orçamento (quiz / grupo de ofertas / carrinho)
   function productCardHtml(p){
     return '' +
       '<a class="cat-card-img" href="#/produto/' + p.slug + '"><img src="' + p.images[0].src + '" alt="' + p.images[0].alt + '" loading="lazy" /></a>' +
       '<div class="cat-card-body">' +
         '<a class="cat-card-name-link" href="#/produto/' + p.slug + '"><h3 class="cat-card-name">' + p.name + '</h3></a>' +
         '<div class="cat-card-tags">' + p.tags + '</div>' +
-        '<div class="cat-card-price">a partir de <b>' + fromPrice(p) + '</b></div>' +
         '<div class="cat-card-cta">' +
           '<a class="btn btn-outline-dark btn-sm" href="#/produto/' + p.slug + '">Ver produto</a>' +
           '<button type="button" class="btn btn-solid-dark btn-sm js-open-quiz">Pedir</button>' +
@@ -121,9 +145,16 @@
   function filteredCatEntries(){
     var q = catState.query.trim().toLowerCase();
     return catEntries.filter(function(e){
-      if (catState.scope !== 'all' && e.scope !== catState.scope) return false;
+      // se algum time específico foi selecionado, ele já diz exatamente quais produtos
+      // aparecem — a aba de escopo (nacional/internacional/seleção) não filtra mais em
+      // cima disso, senão dava pra escolher times de escopos diferentes ao mesmo tempo
+      // e um sumia por causa do outro
+      if (catState.teams.size > 0){
+        if (!catState.teams.has(e.team)) return false;
+      } else if (catState.scope !== 'all' && e.scope !== catState.scope){
+        return false;
+      }
       if (catState.gender !== 'all' && e.gender !== catState.gender) return false;
-      if (catState.teams.size > 0 && !catState.teams.has(e.team)) return false;
       if (q && e.search.indexOf(q) === -1) return false;
       return true;
     });
@@ -212,9 +243,36 @@
     }).join('');
 
     renderCatPagination(totalPages);
+    updateClearFiltersVisibility();
   }
 
   function buildCatalog(){ renderCatalog(); }
+
+  function anyCatFilterActive(){
+    return catState.scope !== 'all' || catState.gender !== 'all' || catState.teams.size > 0 || catState.query.trim() !== '';
+  }
+  function updateClearFiltersVisibility(){
+    var btn = document.getElementById('catClearFilters');
+    if (btn) btn.hidden = !anyCatFilterActive();
+  }
+  function clearAllCatFilters(){
+    catState.scope = 'all';
+    catState.gender = 'all';
+    catState.teams.clear();
+    catState.query = '';
+    catState.page = 1;
+    catTeamQuery = '';
+    var searchInput = document.getElementById('catSearch');
+    if (searchInput) searchInput.value = '';
+    var teamSearchInput = document.getElementById('catTeamSearch');
+    if (teamSearchInput) teamSearchInput.value = '';
+    document.querySelectorAll('#catTabs button').forEach(function(b){ b.classList.toggle('is-active', b.getAttribute('data-scope') === 'all'); });
+    document.querySelectorAll('#catGender button').forEach(function(b){ b.classList.toggle('is-active', b.getAttribute('data-gender') === 'all'); });
+    updateTeamBadge();
+    renderTeamPanel();
+    renderCatalog();
+    saveCatFiltersToStorage();
+  }
 
   // ---- faixa de texto rolando (ticker) — duplica o conteúdo até preencher pelo
   // menos 2x a largura visível, senão em telas largas sobra espaço em branco no
@@ -271,10 +329,8 @@
     document.getElementById('productName').textContent = p.name;
     document.getElementById('productTags').textContent = p.tags;
 
-    document.getElementById('productPriceBox').innerHTML = p.price.map(function(t){
-      return '<div class="tier"><span>' + t.range + '</span><b>' + t.value + '</b></div>';
-    }).join('');
-
+    // preço não aparece fixo na página do produto — só depois que a pessoa monta o
+    // pedido (quantidade por tamanho) é que o valor por peça é calculado e mostrado
     document.getElementById('productDesc').innerHTML = p.description.map(function(d){
       return '<li>' + d + '</li>';
     }).join('');
@@ -285,7 +341,6 @@
 
     galleryState.images = p.images;
     galleryState.index = 0;
-    renderGalleryMain();
 
     var thumbs = document.getElementById('galleryThumbs');
     thumbs.innerHTML = p.images.map(function(img, i){
@@ -297,6 +352,8 @@
         renderGalleryMain();
       });
     });
+
+    renderGalleryMain();
 
     renderRelatedProducts(p);
   }
@@ -504,7 +561,8 @@
     });
   }
 
-  function buildCartWhatsAppText(){
+  // includeImageLinks=false quando as fotos já vão anexadas de verdade via Web Share
+  function buildCartWhatsAppText(includeImageLinks){
     var lines = ['Olá! Quero fechar este pedido no atacado da DA Sports:', ''];
     var grandTotal = 0;
     Object.keys(cart).forEach(function(slug){
@@ -520,13 +578,40 @@
           lines.push('  Personalização: ' + n.replace(/\n/g, ' / '));
         });
       }
-      if (item.image){
+      if (item.image && includeImageLinks !== false){
         lines.push('  Foto: ' + item.image);
       }
       lines.push('');
     });
     lines.push('Total: ' + cartTotalPieces() + ' peças — ' + numberToBrl(grandTotal));
     return lines.join('\n');
+  }
+
+  // tenta anexar as fotos de verdade (Web Share API, funciona sobretudo no celular);
+  // resolve true se conseguiu compartilhar (ou o usuário cancelou), false se precisa cair no link de texto
+  function shareCartPhotos(){
+    if (!navigator.share) return Promise.resolve(false);
+    var slugs = Object.keys(cart);
+    var filePromises = slugs.map(function(slug){
+      var item = cart[slug];
+      return fetch(item.image, { mode: 'cors' }).then(function(r){
+        if (!r.ok) throw new Error('falha ao buscar imagem');
+        return r.blob();
+      }).then(function(blob){
+        var ext = (blob.type && blob.type.split('/')[1]) || 'jpg';
+        var safeName = (item.name || 'camisa').toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'camisa';
+        return new File([blob], safeName + '.' + ext, { type: blob.type || 'image/jpeg' });
+      });
+    });
+    return Promise.all(filePromises).then(function(files){
+      var shareData = { text: buildCartWhatsAppText(false), files: files };
+      if (navigator.canShare && !navigator.canShare(shareData)) return false;
+      return navigator.share(shareData).then(function(){ return true; });
+    }).catch(function(err){
+      if (err && err.name === 'AbortError') return true; // usuário cancelou o compartilhamento, não é erro
+      return false;
+    });
   }
 
   var cartDrawer = document.getElementById('cartDrawer');
@@ -549,8 +634,11 @@
   cartDrawer.addEventListener('click', function(e){ if (e.target === cartDrawer) closeCartDrawer(); });
   document.getElementById('cartCheckout').addEventListener('click', function(){
     if (Object.keys(cart).length === 0) return;
-    var text = buildCartWhatsAppText();
-    window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    shareCartPhotos().then(function(shared){
+      if (shared) return;
+      var text = buildCartWhatsAppText(true);
+      window.open('https://wa.me/' + WHATSAPP_NUMBER + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    });
   });
 
   function renderGalleryMain(){
@@ -561,6 +649,30 @@
     document.querySelectorAll('#galleryThumbs button').forEach(function(btn, i){
       btn.classList.toggle('is-active', i === galleryState.index);
     });
+  }
+
+  // arrasto/swipe pra trocar de imagem (galeria principal e lightbox);
+  // retorna um objeto com getMoved() pra quem chamou decidir se foi um clique ou um arrasto
+  function attachSwipeNav(el, onSwipe){
+    var startX = 0, startY = 0, moved = 0, active = false;
+    el.addEventListener('dragstart', function(e){ e.preventDefault(); });
+    el.addEventListener('pointerdown', function(e){
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      active = true; startX = e.clientX; startY = e.clientY; moved = 0;
+      try { el.setPointerCapture(e.pointerId); } catch(_){}
+    });
+    el.addEventListener('pointermove', function(e){
+      if (!active) return;
+      moved = e.clientX - startX;
+    });
+    function end(){
+      if (!active) return;
+      active = false;
+      if (Math.abs(moved) > 40){ onSwipe(moved < 0 ? 1 : -1); }
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    return { getMoved: function(){ return moved; } };
   }
 
   // ---- lightbox ----
@@ -576,17 +688,35 @@
         (galleryState.images.length > 1 ? '<button class="lightbox-next" id="lbNext" aria-label="Próxima"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>' : '') +
       '</div>';
     var el = document.getElementById('lightboxEl');
-    el.addEventListener('click', function(e){ if (e.target === el) closeLightbox(); });
+    el.addEventListener('click', function(e){
+      if (e.target !== el) return;
+      // depois de um swipe a imagem pode mudar de proporção e "sobrar" um clique
+      // fantasma no fundo, bem na hora que o dedo solta — ignora esse clique
+      if (suppressNextLbBackdropClick){ suppressNextLbBackdropClick = false; return; }
+      closeLightbox();
+    });
     document.getElementById('lbClose').addEventListener('click', closeLightbox);
     var prevBtn = document.getElementById('lbPrev');
     var nextBtn = document.getElementById('lbNext');
     if (prevBtn) prevBtn.addEventListener('click', function(){ step(-1); });
     if (nextBtn) nextBtn.addEventListener('click', function(){ step(1); });
+    if (galleryState.images.length > 1){
+      var lbImg = el.querySelector('img');
+      attachSwipeNav(lbImg, function(dir){
+        suppressNextLbBackdropClick = true;
+        setTimeout(function(){ suppressNextLbBackdropClick = false; }, 400);
+        step(dir);
+      });
+    }
     document.addEventListener('keydown', onLbKeydown);
   }
-  function step(dir){
+  var suppressNextLbBackdropClick = false;
+  function stepGallery(dir){
     galleryState.index = (galleryState.index + dir + galleryState.images.length) % galleryState.images.length;
     renderGalleryMain();
+  }
+  function step(dir){
+    stepGallery(dir);
     openLightbox();
   }
   function onLbKeydown(e){
@@ -772,16 +902,13 @@
     btn.classList.add('is-active');
     catState.scope = btn.getAttribute('data-scope');
     catState.page = 1;
-    // ao trocar de aba, times de outro escopo selecionados deixam de fazer sentido
-    if (catState.scope !== 'all'){
-      Array.from(catState.teams).forEach(function(slug){
-        var t = (window.DA_TEAMS || []).filter(function(x){ return x.slug === slug; })[0];
-        if (t && t.scope !== catState.scope) catState.teams.delete(slug);
-      });
-    }
+    // a aba de escopo só filtra a lista de times do painel (pra facilitar achar um time);
+    // ela NÃO apaga mais times já selecionados de outro escopo — assim dá pra escolher
+    // times brasileiros e internacionais ao mesmo tempo sem perder a seleção
     updateTeamBadge();
     if (!document.getElementById('catTeamPanel').hidden) renderTeamPanel();
     renderCatalog();
+    saveCatFiltersToStorage();
   });
   document.getElementById('catGender').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-gender]');
@@ -791,6 +918,7 @@
     catState.gender = btn.getAttribute('data-gender');
     catState.page = 1;
     renderCatalog();
+    saveCatFiltersToStorage();
   });
   document.getElementById('catTeamToggle').addEventListener('click', function(){
     var panel = document.getElementById('catTeamPanel');
@@ -808,6 +936,7 @@
     updateTeamBadge();
     catState.page = 1;
     renderCatalog();
+    saveCatFiltersToStorage();
   });
   var catTeamSearchInput = document.getElementById('catTeamSearch');
   var catTeamSearchTimer = null;
@@ -818,6 +947,8 @@
       renderTeamPanel();
     }, 120);
   });
+  var catClearBtn = document.getElementById('catClearFilters');
+  if (catClearBtn) catClearBtn.addEventListener('click', clearAllCatFilters);
   document.getElementById('catPagination').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-page]');
     if (!btn || btn.disabled) return;
@@ -835,15 +966,6 @@
   // e vira vitrine de modelos automaticamente quando o catálogo crescer.
   var DECK_INTERVAL = 5000;
 
-  function cheapestPrice(p){
-    var min = null;
-    p.price.forEach(function(t){
-      var n = brlToNumber(t.value);
-      if (min === null || n < min) min = n;
-    });
-    return min === null ? '' : numberToBrl(min);
-  }
-
   // Com o catálogo grande, o deck do hero não vira "um slide por produto" — isso ficaria
   // gigante e lento. Ele mostra só uma vitrine curta com os primeiros modelos do catálogo
   // (que já vêm ordenados com os times em destaque na frente).
@@ -855,16 +977,15 @@
     if (slugs.length > 1){
       slugs.slice(0, DECK_MAX_SLIDES).forEach(function(slug){
         var p = PRODUCTS[slug];
-        slides.push({ slug: p.slug, img: p.images[0], tag: 'No catálogo', name: p.name, sub: p.category, price: cheapestPrice(p), caption: p.name });
+        slides.push({ slug: p.slug, img: p.images[0], tag: 'No catálogo', name: p.name, sub: p.category, caption: p.name });
       });
     } else if (slugs.length === 1){
       var p = PRODUCTS[slugs[0]];
-      var price = cheapestPrice(p);
       p.images.forEach(function(img, i){
         slides.push({
           slug: p.slug, img: img,
           tag: i === 0 ? 'Nova temporada' : img.caption,
-          name: p.name, sub: p.category, price: price,
+          name: p.name, sub: p.category,
           caption: img.caption
         });
       });
@@ -889,7 +1010,6 @@
               '<img src="' + s.img.src + '" alt="' + s.img.alt + '"' + (i === 0 ? '' : ' loading="lazy"') + ' draggable="false" />' +
               '<div class="jersey-chip">' +
                 '<div><div class="name">' + s.name + '</div><div class="sub">' + s.sub + '</div></div>' +
-                '<div class="price">a partir de ' + s.price + '</div>' +
               '</div>' +
             '</div>' +
           '</a>' +
@@ -1033,6 +1153,8 @@
 
   // ---- init ----
   initTicker();
+  loadCatFiltersFromStorage();
+  syncCatFiltersUi();
   buildCatalog();
   buildProofGrid();
   renderCart();
@@ -1040,7 +1162,11 @@
   route();
 
   var galleryMain = document.getElementById('galleryMain');
-  galleryMain.addEventListener('click', openLightbox);
+  var galleryMainSwipe = attachSwipeNav(galleryMain, function(dir){ stepGallery(dir); });
+  galleryMain.addEventListener('click', function(e){
+    if (Math.abs(galleryMainSwipe.getMoved()) > 8) return; // foi um arrasto, não abre o lightbox
+    openLightbox();
+  });
   galleryMain.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(); } });
 
   // sticky header shadow
@@ -1067,7 +1193,7 @@
     document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('is-visible'); });
   }
 
-  // inclinação 3D do deck acompanhando o mouse (desktop, sem arrasto em curso)
+  // inclinação 3D do card ao passar o mouse
   var deckEl = document.getElementById('heroDeck');
   var deckView = document.getElementById('deckViewport');
   if (deckEl && deckView && !reduceMotion && window.matchMedia('(pointer:fine)').matches){
@@ -1076,11 +1202,9 @@
       var r = deckEl.getBoundingClientRect();
       var px = (e.clientX - r.left) / r.width - 0.5;
       var py = (e.clientY - r.top) / r.height - 0.5;
-      deckView.style.transform = 'rotateY(' + (px * 9) + 'deg) rotateX(' + (py * -9) + 'deg)';
+      deckView.style.transform = 'rotateY(' + (px * 6) + 'deg) rotateX(' + (py * -6) + 'deg)';
     });
-    deckEl.addEventListener('mouseleave', function(){
-      deckView.style.transform = '';
-    });
+    deckEl.addEventListener('mouseleave', function(){ deckView.style.transform = ''; });
   }
 
   // magnetic hover on the main CTAs — desktop / fine pointer only
