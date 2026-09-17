@@ -371,8 +371,19 @@
     border:0; outline:0; background:none; color:var(--ink); font-family:var(--font-body); font-size:1rem; width:100%;
   }
   .cat-search input::placeholder{ color:var(--muted); }
-  .cat-filters{ display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  .cat-tabs, .cat-gender{ display:flex; gap:6px; flex-wrap:wrap; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:4px; }
+  .cat-filters-card{
+    display:flex; flex-wrap:wrap; gap:18px 28px; align-items:flex-start;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px 20px; margin-bottom:22px;
+  }
+  .cat-filter-group{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .cat-filter-group--team{ flex:1 1 auto; min-width:200px; }
+  .cat-filter-label{
+    font-family:var(--font-mono); font-size:0.66rem; font-weight:600; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .cat-tabs-scroll{ position:relative; }
+  .cat-tabs, .cat-gender{ display:flex; gap:6px; flex-wrap:wrap; background:var(--paper-2); border:1px solid var(--line); border-radius:999px; padding:4px; width:max-content; max-width:100%; }
   .cat-tabs button, .cat-gender button{
     border:0; background:none; cursor:pointer; padding:8px 16px; border-radius:999px;
     font-family:var(--font-body); font-size:0.82rem; font-weight:600;
@@ -381,7 +392,7 @@
   .cat-tabs button.is-active, .cat-gender button.is-active{ background:var(--ink); color:var(--paper); }
   .cat-tabs button:not(.is-active):hover, .cat-gender button:not(.is-active):hover{ color:var(--ink); }
 
-  .cat-team-block{ margin-bottom:22px; position:relative; }
+  .cat-filter-group--team{ position:relative; }
   .cat-team-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .cat-clear-filters{
     display:inline-flex; align-items:center; gap:6px; background:none; border:0;
@@ -551,13 +562,21 @@
     .final-cta .btn{ width:100%; justify-content:center; }
     .product-cta{ flex-direction:column; align-items:stretch; }
     .product-cta .btn{ justify-content:center; }
-    .cat-filters{ flex-direction:column; align-items:stretch; }
+    .cat-filters-card{ flex-direction:column; align-items:stretch; gap:16px; padding:16px; border-radius:16px; }
+    .cat-tabs-scroll{
+      margin:0 -16px; padding:0 16px;
+      -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+      mask-image:linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+    }
     .cat-tabs, .cat-gender{
       flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
-      width:max-content; max-width:100%; margin-inline:auto;
+      width:max-content; max-width:100%;
     }
-    .cat-tabs button, .cat-gender button{ flex:none; }
-    .cat-team-toggle{ width:100%; justify-content:center; }
+    .cat-tabs button, .cat-gender button{ flex:none; padding:9px 15px; }
+    .cat-filter-group--team{ min-width:0; }
+    .cat-team-row{ gap:10px; }
+    .cat-team-toggle{ flex:1 1 auto; justify-content:center; }
+    .cat-clear-filters{ flex:none; }
     .cat-team-grid{ grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); }
     .lightbox{ padding:16px; }
     .lightbox-close{ top:10px; right:10px; width:38px; height:38px; }

@@ -130,40 +130,50 @@
       </label>
     </div>
 
-    <div class="cat-filters reveal">
-      <div class="cat-tabs" id="catTabs" role="tablist" aria-label="Categoria">
-        <button type="button" class="is-active" data-scope="all">Todos</button>
-        <button type="button" data-scope="nacional">Nacional</button>
-        <button type="button" data-scope="internacional">Internacional</button>
-        <button type="button" data-scope="selecao">Seleções</button>
+    <div class="cat-filters-card reveal">
+      <div class="cat-filter-group">
+        <span class="cat-filter-label">Categoria</span>
+        <div class="cat-tabs-scroll">
+          <div class="cat-tabs" id="catTabs" role="tablist" aria-label="Categoria">
+            <button type="button" class="is-active" data-scope="all">Todos</button>
+            <button type="button" data-scope="nacional">Nacional</button>
+            <button type="button" data-scope="internacional">Internacional</button>
+            <button type="button" data-scope="selecao">Seleções</button>
+          </div>
+        </div>
       </div>
-      <div class="cat-gender" id="catGender" role="group" aria-label="Gênero">
-        <button type="button" class="is-active" data-gender="all">Todos</button>
-        <button type="button" data-gender="masculino">Masculino</button>
-        <button type="button" data-gender="feminino">Feminino</button>
-        <button type="button" data-gender="infantil">Infantil</button>
+      <div class="cat-filter-group">
+        <span class="cat-filter-label">Gênero</span>
+        <div class="cat-tabs-scroll">
+          <div class="cat-gender" id="catGender" role="group" aria-label="Gênero">
+            <button type="button" class="is-active" data-gender="all">Todos</button>
+            <button type="button" data-gender="masculino">Masculino</button>
+            <button type="button" data-gender="feminino">Feminino</button>
+            <button type="button" data-gender="infantil">Infantil</button>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <div class="cat-team-block reveal">
-      <div class="cat-team-row">
-        <button type="button" class="cat-team-toggle" id="catTeamToggle" aria-expanded="false" aria-controls="catTeamPanel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 6v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V6l-9-4Z"/></svg>
-          <span>Filtrar por time</span>
-          <span class="cat-team-badge" id="catTeamBadge" hidden>0</span>
-          <svg class="cat-team-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <button type="button" class="cat-clear-filters" id="catClearFilters" hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          Limpar filtros
-        </button>
-      </div>
-      <div class="cat-team-panel" id="catTeamPanel" hidden>
-        <label class="cat-team-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input type="text" id="catTeamSearch" placeholder="Buscar time ou seleção…" autocomplete="off" />
-        </label>
-        <div id="catTeamGroups"></div>
+      <div class="cat-filter-group cat-filter-group--team">
+        <span class="cat-filter-label">Time</span>
+        <div class="cat-team-row">
+          <button type="button" class="cat-team-toggle" id="catTeamToggle" aria-expanded="false" aria-controls="catTeamPanel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 3 6v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V6l-9-4Z"/></svg>
+            <span>Filtrar por time</span>
+            <span class="cat-team-badge" id="catTeamBadge" hidden>0</span>
+            <svg class="cat-team-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <button type="button" class="cat-clear-filters" id="catClearFilters" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            Limpar filtros
+          </button>
+        </div>
+        <div class="cat-team-panel" id="catTeamPanel" hidden>
+          <label class="cat-team-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="catTeamSearch" placeholder="Buscar time ou seleção…" autocomplete="off" />
+          </label>
+          <div id="catTeamGroups"></div>
+        </div>
       </div>
     </div>
 
@@ -456,12 +466,11 @@
     <div class="cart-body" id="cartBody"></div>
     <div class="cart-footer" id="cartFooter" hidden>
       <div class="cart-total-row"><span>Peças</span><b id="cartGrandQty">0</b></div>
-      <div class="cart-total-row"><span>Total estimado</span><b id="cartGrandTotal">R$ 0,00</b></div>
       <button type="button" class="btn btn-solid-dark cart-checkout" id="cartCheckout">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18a7.94 7.94 0 0 1-4.05-1.1l-.29-.17-3 .79.8-2.93-.19-.3A7.95 7.95 0 1 1 12 20zm4.42-5.97c-.24-.12-1.43-.7-1.65-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.1.16 1.52.1.46-.07 1.43-.58 1.63-1.15.2-.57.2-1.05.14-1.15-.06-.1-.22-.16-.46-.28z"/></svg>
         Solicitar orçamento no WhatsApp
       </button>
-      <p class="cart-note">Preço aplicado por modelo, conforme a faixa de quantidade. Valores finais e frete são confirmados no WhatsApp.</p>
+      <p class="cart-note">Preço varia por modelo e quantidade — o valor é informado pelo time ao responder seu pedido de orçamento no WhatsApp.</p>
       <p class="cart-note">No celular, as fotos das camisas vão anexadas de verdade junto com o pedido. No computador, elas aparecem em miniatura assim que a mensagem é enviada.</p>
     </div>
   </aside>

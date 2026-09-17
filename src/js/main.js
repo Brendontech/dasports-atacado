@@ -412,22 +412,6 @@
     requestAnimationFrame(updateArrows);
   }
 
-  // ---- price tier lookup + BRL parsing ----
-  function tierForQty(product, qty){
-    var tiers = product.price;
-    var chosen = tiers[0];
-    for (var i = 0; i < tiers.length; i++){
-      if (qty >= tiers[i].min) chosen = tiers[i];
-    }
-    return chosen;
-  }
-  function brlToNumber(v){
-    return parseFloat(v.replace('R$', '').trim().replace(/\./g, '').replace(',', '.')) || 0;
-  }
-  function numberToBrl(n){
-    return 'R$ ' + n.toFixed(2).replace('.', ',');
-  }
-
   // ---- product page: size/quantity picker ----
   var sizePickerState = {};
   function renderSizePicker(p){
@@ -479,11 +463,10 @@
   function updateSizePickerTotal(p){
     var total = 0;
     Object.keys(sizePickerState).forEach(function(s){ total += sizePickerState[s]; });
-    var tier = tierForQty(p, total);
     var totalEl = document.getElementById('productOrderTotal');
     totalEl.innerHTML = total === 0
       ? '0 peças selecionadas'
-      : '<b>' + total + '</b> peça' + (total > 1 ? 's' : '') + ' selecionada' + (total > 1 ? 's' : '') + ' · ' + tier.value + ' cada';
+      : '<b>' + total + '</b> peça' + (total > 1 ? 's' : '') + ' selecionada' + (total > 1 ? 's' : '');
     document.getElementById('productAddToCart').disabled = total === 0;
   }
 
@@ -526,13 +509,11 @@
       return;
     }
 
-    var grandTotal = 0;
+    // sem valores aqui de propósito — o preço só é informado quando o time responde
+    // o pedido de orçamento no WhatsApp, porque varia conforme a quantidade
     var html = slugs.map(function(slug){
       var item = cart[slug];
       var qty = cartItemTotalQty(item);
-      var tier = tierForQty(item, qty);
-      var subtotal = brlToNumber(tier.value) * qty;
-      grandTotal += subtotal;
       var sizesHtml = Object.keys(item.sizes).map(function(s){
         return '<span>' + s + ' × ' + item.sizes[s] + '</span>';
       }).join('');
@@ -546,14 +527,13 @@
             '<div class="cart-item-name">' + item.name + '</div>' +
             '<div class="cart-item-sizes">' + sizesHtml + '</div>' +
             notesHtml +
-            '<div class="cart-item-price">' + qty + ' peças · ' + tier.value + ' cada · <b>' + numberToBrl(subtotal) + '</b></div>' +
+            '<div class="cart-item-price">' + qty + ' peças</div>' +
           '</div>' +
           '<button type="button" class="cart-item-remove" data-slug="' + slug + '" aria-label="Remover">&times;</button>' +
         '</div>';
     }).join('');
     body.innerHTML = html;
     footer.hidden = false;
-    document.getElementById('cartGrandTotal').textContent = numberToBrl(grandTotal);
     document.getElementById('cartGrandQty').textContent = cartTotalPieces();
 
     body.querySelectorAll('.cart-item-remove').forEach(function(btn){
@@ -563,16 +543,12 @@
 
   // includeImageLinks=false quando as fotos já vão anexadas de verdade via Web Share
   function buildCartWhatsAppText(includeImageLinks){
-    var lines = ['Olá! Quero fechar este pedido no atacado da DA Sports:', ''];
-    var grandTotal = 0;
+    var lines = ['Olá! Quero pedir um orçamento no atacado da DA Sports:', ''];
     Object.keys(cart).forEach(function(slug){
       var item = cart[slug];
       var qty = cartItemTotalQty(item);
-      var tier = tierForQty(item, qty);
-      var subtotal = brlToNumber(tier.value) * qty;
-      grandTotal += subtotal;
       var sizesText = Object.keys(item.sizes).map(function(s){ return s + ' x' + item.sizes[s]; }).join(', ');
-      lines.push('• ' + item.name + ' — ' + sizesText + ' (' + qty + ' peças, ' + tier.value + ' cada = ' + numberToBrl(subtotal) + ')');
+      lines.push('• ' + item.name + ' — ' + sizesText + ' (' + qty + ' peças)');
       if (item.notes && item.notes.length){
         item.notes.forEach(function(n){
           lines.push('  Personalização: ' + n.replace(/\n/g, ' / '));
@@ -583,7 +559,7 @@
       }
       lines.push('');
     });
-    lines.push('Total: ' + cartTotalPieces() + ' peças — ' + numberToBrl(grandTotal));
+    lines.push('Total: ' + cartTotalPieces() + ' peças');
     return lines.join('\n');
   }
 
@@ -769,17 +745,10 @@
     quizProgress.style.display = quizState.step >= QUIZ_STEPS.length ? 'none' : 'flex';
   }
 
-  // [EDITAR-PRECO-EXEMPLO] faixas de preço usadas só como exemplo na dica do quiz
-  var QUIZ_PRICE_HINT_TIERS = [
-    { range: "10–29 peças", value: "R$ 42,90" },
-    { range: "30–59 peças", value: "R$ 39,90" },
-    { range: "60+ peças", value: "R$ 36,90" }
-  ];
-
-  function priceHintForAnswer(qtyIdx){
-    if (qtyIdx === 1) return 'Nessa faixa (10–29 peças) o preço fica ' + QUIZ_PRICE_HINT_TIERS[0].value + ' a peça.';
-    if (qtyIdx === 2) return 'Nessa faixa (30–59 peças) o preço cai pra ' + QUIZ_PRICE_HINT_TIERS[1].value + ' a peça.';
-    if (qtyIdx === 3) return 'Nessa faixa (60+ peças) o preço cai pra ' + QUIZ_PRICE_HINT_TIERS[2].value + ' a peça.';
+  function hintForAnswer(qtyIdx){
+    if (qtyIdx === 1) return 'Faixa de 10–29 peças — ótimo ponto de partida pro atacado.';
+    if (qtyIdx === 2) return 'Faixa de 30–59 peças — condições ainda melhores no grupo.';
+    if (qtyIdx === 3) return 'Faixa de 60+ peças — as melhores condições são pra você.';
     return 'Sem mínimo alto pra conhecer o catálogo — comece do seu jeito.';
   }
 
@@ -787,7 +756,7 @@
     renderQuizProgress();
 
     if (quizState.step >= QUIZ_STEPS.length){
-      var hint = priceHintForAnswer(quizState.answers[1]);
+      var hint = hintForAnswer(quizState.answers[1]);
       quizBody.innerHTML = '' +
         '<div class="quiz-card quiz-result">' +
           '<div class="quiz-badge">' + checkIconSvg + '</div>' +
